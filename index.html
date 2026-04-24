@@ -80,13 +80,13 @@
   .ttype-btn.active.dc-type { color: var(--accent-discord); }
   .exp-tag { display: inline-block; background: rgba(240,192,64,0.1); color: var(--accent-warn); border: 1px solid rgba(240,192,64,0.2); border-radius: 4px; font-size: 0.6rem; font-family: var(--mono); padding: 1px 5px; vertical-align: middle; margin-left: 5px; }
 
-  /* Token rows */
+
   .token-row { display: flex; gap: 8px; align-items: center; }
   .token-row input { flex: 1; }
   .verify-btn { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: var(--mono); font-size: 0.78rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; }
   .verify-btn:hover { border-color: var(--accent-success); color: var(--accent-success); }
 
-  /* ── Multi-token list ── */
+
   .multi-token-section { margin-bottom: 0; }
   .token-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
   .token-item {
@@ -131,7 +131,7 @@
   .multi-action-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-dim); font-family: var(--mono); font-size: 0.78rem; cursor: pointer; transition: all 0.18s; }
   .multi-action-btn:hover { color: var(--text); border-color: var(--text-dim); }
 
-  /* Stats bar */
+
   .stats-bar { display: flex; gap: 16px; font-size: 0.72rem; font-family: var(--mono); color: var(--text-dim); padding: 8px 0 0; }
   .stats-bar span { display: flex; align-items: center; gap: 5px; }
   .stat-dot { width: 6px; height: 6px; border-radius: 50%; }
@@ -139,14 +139,14 @@
   .stat-err { background: var(--accent-danger); }
   .stat-pend{ background: var(--text-dim); }
 
-  /* Chips */
+  
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 0.75rem; cursor: pointer; transition: all 0.18s; user-select: none; }
   .chip:hover { border-color: var(--text-dim); color: var(--text); }
   .chip.selected { border-color: var(--accent-discord); color: var(--accent-discord); background: rgba(88,101,242,0.08); }
   .chip.selected.x-chip { border-color: var(--accent-x); color: var(--accent-x); background: rgba(29,155,240,0.08); }
 
-  /* Buttons */
+  
   .submit-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-family: var(--display); font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.02em; margin-top: 8px; }
   .submit-btn.x-btn { background: var(--accent-x); color: #fff; }
   .submit-btn.discord-btn { background: var(--accent-discord); color: #fff; }
@@ -199,7 +199,7 @@
   </header>
 
   <div class="worker-config">
-    <label>⚡ Worker URL</label>
+    <label>Worker URL</label>
     <input type="text" id="worker-url" placeholder="https://autoreport.your-name.workers.dev" oninput="saveWorkerUrl()" />
     <span class="wstatus" id="worker-status">未設定</span>
   </div>
