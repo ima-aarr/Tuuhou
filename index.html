@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoReport — 自動通報ツール</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #11111a;
+    --surface2: #1a1a28;
+    --border: #2a2a40;
+    --accent-x: #1d9bf0;
+    --accent-discord: #5865f2;
+    --accent-danger: #ff4466;
+    --accent-success: #00e5a0;
+    --accent-warn: #f0c040;
+    --text: #e8e8f0;
+    --text-dim: #7070a0;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--display); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(88,101,242,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(88,101,242,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .glow-orb { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
+  .glow-orb.a { width: 400px; height: 400px; background: rgba(29,155,240,0.06); top: -100px; left: -100px; }
+  .glow-orb.b { width: 300px; height: 300px; background: rgba(88,101,242,0.08); bottom: 100px; right: -50px; }
+  .container { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  /* Header */
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+  .logo-mark { width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent-x), var(--accent-discord)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+  .badge { margin-left: auto; background: rgba(0,229,160,0.1); color: var(--accent-success); border: 1px solid rgba(0,229,160,0.2); padding: 4px 10px; border-radius: 999px; font-size: 0.7rem; font-family: var(--mono); }
+
+  /* Worker URL */
+  .worker-config { background: var(--surface2); border: 1px solid rgba(240,192,64,0.2); border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .worker-config label { font-size: 0.75rem; font-family: var(--mono); color: var(--accent-warn); white-space: nowrap; }
+  .worker-config input { flex: 1; min-width: 220px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-family: var(--mono); font-size: 0.8rem; padding: 8px 12px; outline: none; transition: border-color 0.2s; }
+  .worker-config input:focus { border-color: var(--accent-warn); }
+  .wstatus { font-size: 0.72rem; font-family: var(--mono); color: var(--text-dim); white-space: nowrap; }
+  .wstatus.ok { color: var(--accent-success); }
+  .wstatus.err { color: var(--accent-danger); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 22px; }
+  .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 9px; background: transparent; color: var(--text-dim); font-family: var(--display); font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .tab-btn.active { color: var(--text); background: var(--surface2); }
+  .tab-btn.active.x { box-shadow: 0 0 0 1px var(--accent-x), inset 0 0 12px rgba(29,155,240,0.08); }
+  .tab-btn.active.discord { box-shadow: 0 0 0 1px var(--accent-discord), inset 0 0 12px rgba(88,101,242,0.08); }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeUp 0.25s ease; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+  /* Section */
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 14px; }
+  .section-label { font-size: 0.65rem; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .section-label-action { margin-left: auto; }
+
+  /* Form */
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; font-family: var(--mono); }
+  input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 0.85rem; padding: 10px 12px; outline: none; transition: border-color 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-discord); }
+  input[type="password"] { letter-spacing: 0.08em; }
+  textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+
+  /* Token type toggle */
+  .token-type-toggle { display: flex; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; margin-bottom: 12px; width: fit-content; }
+  .ttype-btn { padding: 5px 14px; border-radius: 6px; border: none; background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 0.75rem; cursor: pointer; transition: all 0.18s; }
+  .ttype-btn.active { background: var(--surface2); color: var(--text); }
+  .ttype-btn.active.x-type { color: var(--accent-x); }
+  .ttype-btn.active.dc-type { color: var(--accent-discord); }
+  .exp-tag { display: inline-block; background: rgba(240,192,64,0.1); color: var(--accent-warn); border: 1px solid rgba(240,192,64,0.2); border-radius: 4px; font-size: 0.6rem; font-family: var(--mono); padding: 1px 5px; vertical-align: middle; margin-left: 5px; }
+
+  /* Token rows */
+  .token-row { display: flex; gap: 8px; align-items: center; }
+  .token-row input { flex: 1; }
+  .verify-btn { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: var(--mono); font-size: 0.78rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; }
+  .verify-btn:hover { border-color: var(--accent-success); color: var(--accent-success); }
+
+  /* ── Multi-token list ── */
+  .multi-token-section { margin-bottom: 0; }
+  .token-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .token-item {
+    display: grid;
+    grid-template-columns: 28px 1fr auto auto;
+    gap: 8px; align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    transition: border-color 0.2s;
+  }
+  .token-item.verified-ok  { border-color: rgba(0,229,160,0.35); }
+  .token-item.verified-err { border-color: rgba(255,68,102,0.35); }
+  .token-item.running      { border-color: rgba(240,192,64,0.4); animation: borderPulse 1s infinite; }
+  .token-item.done-ok      { border-color: rgba(0,229,160,0.6); background: rgba(0,229,160,0.04); }
+  .token-item.done-err     { border-color: rgba(255,68,102,0.4); background: rgba(255,68,102,0.04); }
+  @keyframes borderPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .token-index { font-size: 0.7rem; font-family: var(--mono); color: var(--text-dim); text-align: center; }
+  .token-input-wrap { position: relative; }
+  .token-input-wrap input { width: 100%; padding-right: 80px; }
+  .token-label-badge {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 0.65rem; font-family: var(--mono); color: var(--text-dim);
+    background: var(--surface2); padding: 2px 7px; border-radius: 4px;
+    pointer-events: none; white-space: nowrap;
+  }
+  .token-item-status { font-size: 0.72rem; font-family: var(--mono); color: var(--text-dim); white-space: nowrap; min-width: 60px; text-align: right; }
+  .token-item-status.ok   { color: var(--accent-success); }
+  .token-item-status.err  { color: var(--accent-danger); }
+  .token-item-status.run  { color: var(--accent-warn); }
+  .token-item-status.done { color: var(--accent-success); }
+  .token-remove-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 2px 6px; border-radius: 5px; transition: color 0.15s; flex-shrink: 0; }
+  .token-remove-btn:hover { color: var(--accent-danger); }
+
+  .add-token-btn { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 9px; border: 1px dashed var(--border); background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 0.8rem; cursor: pointer; width: 100%; justify-content: center; transition: all 0.18s; }
+  .add-token-btn:hover { border-color: var(--accent-discord); color: var(--accent-discord); }
+  .add-token-btn.x-add:hover { border-color: var(--accent-x); color: var(--accent-x); }
+
+  .multi-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .multi-action-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-dim); font-family: var(--mono); font-size: 0.78rem; cursor: pointer; transition: all 0.18s; }
+  .multi-action-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+  /* Stats bar */
+  .stats-bar { display: flex; gap: 16px; font-size: 0.72rem; font-family: var(--mono); color: var(--text-dim); padding: 8px 0 0; }
+  .stats-bar span { display: flex; align-items: center; gap: 5px; }
+  .stat-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .stat-ok  { background: var(--accent-success); }
+  .stat-err { background: var(--accent-danger); }
+  .stat-pend{ background: var(--text-dim); }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 0.75rem; cursor: pointer; transition: all 0.18s; user-select: none; }
+  .chip:hover { border-color: var(--text-dim); color: var(--text); }
+  .chip.selected { border-color: var(--accent-discord); color: var(--accent-discord); background: rgba(88,101,242,0.08); }
+  .chip.selected.x-chip { border-color: var(--accent-x); color: var(--accent-x); background: rgba(29,155,240,0.08); }
+
+  /* Buttons */
+  .submit-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-family: var(--display); font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.02em; margin-top: 8px; }
+  .submit-btn.x-btn { background: var(--accent-x); color: #fff; }
+  .submit-btn.discord-btn { background: var(--accent-discord); color: #fff; }
+  .submit-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .submit-btn:active { transform: translateY(0); }
+  .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; filter: none; }
+
+  /* Log */
+  .log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-family: var(--mono); font-size: 0.78rem; line-height: 1.8; max-height: 220px; overflow-y: auto; color: var(--text-dim); }
+  .log-line { display: flex; gap: 10px; }
+  .log-time { color: var(--text-dim); flex-shrink: 0; }
+  .log-ok   { color: var(--accent-success); }
+  .log-err  { color: var(--accent-danger); }
+  .log-info { color: var(--accent-x); }
+  .log-warn { color: var(--accent-warn); }
+
+  .progress-wrap { background: var(--surface2); border-radius: 999px; height: 4px; overflow: hidden; margin-top: 10px; display: none; }
+  .progress-bar { height: 100%; width: 0%; border-radius: 999px; transition: width 0.3s ease; }
+  .progress-bar.x-bar { background: var(--accent-x); }
+  .progress-bar.discord-bar { background: var(--accent-discord); }
+
+  /* Notices */
+  .notice { background: rgba(255,68,102,0.06); border: 1px solid rgba(255,68,102,0.15); border-radius: 10px; padding: 12px 16px; font-size: 0.78rem; font-family: var(--mono); color: rgba(255,180,180,0.8); margin-bottom: 14px; line-height: 1.6; }
+  .notice strong { color: var(--accent-danger); }
+  .notice-warn { background: rgba(240,192,64,0.05); border: 1px solid rgba(240,192,64,0.2); border-radius: 10px; padding: 12px 16px; font-size: 0.78rem; font-family: var(--mono); color: rgba(240,192,64,0.9); margin-bottom: 10px; line-height: 1.6; }
+  .notice-warn strong { color: var(--accent-warn); }
+  details summary { cursor: pointer; font-size: 0.78rem; font-family: var(--mono); color: var(--text-dim); user-select: none; padding: 4px 0; }
+  details summary:hover { color: var(--text); }
+  details[open] summary { margin-bottom: 10px; }
+  .howto { font-size: 0.78rem; font-family: var(--mono); color: var(--text-dim); line-height: 1.7; padding-top: 4px; }
+  .howto a { color: var(--accent-x); text-decoration: none; }
+  .howto code { background: var(--surface2); padding: 1px 5px; border-radius: 4px; font-size: 0.75rem; }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); flex-shrink:0; display: inline-block; }
+  .dot.ok  { background: var(--accent-success); box-shadow: 0 0 6px var(--accent-success); }
+  .dot.err { background: var(--accent-danger);  box-shadow: 0 0 6px var(--accent-danger); }
+  .dot.spin { background: var(--accent-warn); animation: pulse 0.9s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+</style>
+</head>
+<body>
+<div class="glow-orb a"></div>
+<div class="glow-orb b"></div>
+<div class="container">
+
+  <header>
+    <div class="logo-mark">🚨</div>
+    <h1>AutoReport <span>/ 自動通報</span></h1>
+    <span class="badge">v2.2 · multi-token</span>
+  </header>
+
+  <div class="worker-config">
+    <label>⚡ Worker URL</label>
+    <input type="text" id="worker-url" placeholder="https://autoreport.your-name.workers.dev" oninput="saveWorkerUrl()" />
+    <span class="wstatus" id="worker-status">未設定</span>
+  </div>
+
+  <div class="notice">
+    <strong>⚠ 注意：</strong> 虚偽・嫌がらせ目的の通報はアカウント停止の原因になります。正当な理由がある場合のみ使用してください。
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active x"       onclick="switchTab('x')">      <span>𝕏</span> X (Twitter) </button>
+    <button class="tab-btn discord"         onclick="switchTab('discord')"> <span>💬</span> Discord    </button>
+  </div>
+
+  <!-- ══════════════════ X PANEL ══════════════════ -->
+  <div class="panel active" id="panel-x">
+
+    <div class="section">
+      <div class="section-label">
+        // トークン種別
+      </div>
+      <div class="token-type-toggle">
+        <button class="ttype-btn active x-type" onclick="switchXTokenType('bearer')" id="x-ttype-bearer">Bearer Token</button>
+        <button class="ttype-btn x-type"         onclick="switchXTokenType('user')"   id="x-ttype-user">User Token <span class="exp-tag">EXPERIMENTAL</span></button>
+      </div>
+      <div id="x-bearer-howto">
+        <details><summary>Bearer Tokenの取得方法</summary>
+          <div class="howto">1. <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank">X Developer Portal</a> でアプリを作成<br>2. App → Keys and Tokens → Bearer Token をコピー</div>
+        </details>
+      </div>
+      <div id="x-user-howto" style="display:none">
+        <div class="notice-warn" style="margin-top:8px"><strong>⚠</strong> OAuth 2.0 User Access Token。通報APIには <code>users.report</code> スコープが必要です。</div>
+        <details><summary>User Access Tokenの取得方法</summary>
+          <div class="howto">1. Developer Portal → User authentication settings → OAuth 2.0 を有効化<br>2. Scopes: <code>tweet.read users.read users.report</code><br>3. PKCE フローでアクセストークンを取得</div>
+        </details>
+      </div>
+    </div>
+
+    <!-- X マルチトークン -->
+    <div class="section">
+      <div class="section-label">
+        // トークン一覧
+        <span class="section-label-action">
+          <button class="multi-action-btn" onclick="verifyAllX()" style="padding:4px 12px;font-size:0.7rem">全て確認</button>
+        </span>
+      </div>
+      <div class="token-list" id="x-token-list"></div>
+      <button class="add-token-btn x-add" onclick="addXToken()">＋ トークンを追加</button>
+      <div class="stats-bar" id="x-stats-bar" style="display:none">
+        <span><div class="stat-dot stat-ok"></div><span id="x-stat-ok">0</span> 成功</span>
+        <span><div class="stat-dot stat-err"></div><span id="x-stat-err">0</span> 失敗</span>
+        <span><div class="stat-dot stat-pend"></div><span id="x-stat-pend">0</span> 待機</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">// 通報対象</div>
+      <div class="field">
+        <label>ツイートURL または ツイートID</label>
+        <input type="text" id="x-target" placeholder="https://x.com/user/status/123456789 または 123456789" />
+      </div>
+      <div class="field">
+        <label>アカウントのユーザー名（ツイートIDがない場合）</label>
+        <input type="text" id="x-username" placeholder="@username" />
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">// 通報理由</div>
+      <div class="chips" id="x-reasons">
+        <span class="chip x-chip selected" data-val="spam">スパム</span>
+        <span class="chip x-chip" data-val="harassment">嫌がらせ</span>
+        <span class="chip x-chip" data-val="hate_speech">ヘイトスピーチ</span>
+        <span class="chip x-chip" data-val="violence">暴力的コンテンツ</span>
+        <span class="chip x-chip" data-val="misinformation">偽情報</span>
+        <span class="chip x-chip" data-val="adult_content">不正な成人向け</span>
+        <span class="chip x-chip" data-val="other">その他</span>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>補足説明（任意）</label>
+        <textarea id="x-note" placeholder="通報の詳細を記載..."></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">// 実行ログ</div>
+      <div class="log-box" id="x-log"><div class="log-line"><span class="log-time">[--:--:--]</span><span>待機中...</span></div></div>
+      <div class="progress-wrap" id="x-progress-wrap"><div class="progress-bar x-bar" id="x-progress-bar"></div></div>
+    </div>
+
+    <button class="submit-btn x-btn" id="x-submit" onclick="submitX()">𝕏 全トークンで通報を実行</button>
+  </div>
+
+  <!-- ══════════════════ DISCORD PANEL ══════════════════ -->
+  <div class="panel" id="panel-discord">
+
+    <div class="section">
+      <div class="section-label">// トークン種別</div>
+      <div class="token-type-toggle">
+        <button class="ttype-btn active dc-type" onclick="switchDcTokenType('bot')"  id="dc-ttype-bot">Bot Token</button>
+        <button class="ttype-btn dc-type"         onclick="switchDcTokenType('user')" id="dc-ttype-user">User Token <span class="exp-tag">EXPERIMENTAL</span></button>
+      </div>
+      <div id="dc-bot-howto">
+        <details><summary>Bot Tokenの取得方法</summary>
+          <div class="howto">1. <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a> でアプリを作成<br>2. Bot → Reset Token → コピー</div>
+        </details>
+      </div>
+      <div id="dc-user-howto" style="display:none">
+        <div class="notice-warn" style="margin-top:8px"><strong>⚠ 試験的機能：</strong> User Token を使用します。通報APIは User Token が必須です。Tokenはフルアクセス権を持つため<strong>絶対に他人と共有しないでください。</strong></div>
+        <details><summary>User Tokenの確認方法</summary>
+          <div class="howto">
+            DevTools (F12) → Console で以下を実行:<br>
+            <code>(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(let c in e.c)m.push(e.c[c])}]),m).find(m=>m?.exports?.default?.getToken).exports.default.getToken()</code>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Discord マルチトークン -->
+    <div class="section">
+      <div class="section-label">
+        // トークン一覧
+        <span class="section-label-action">
+          <button class="multi-action-btn" onclick="verifyAllDc()" style="padding:4px 12px;font-size:0.7rem">全て確認</button>
+        </span>
+      </div>
+      <div class="token-list" id="dc-token-list"></div>
+      <button class="add-token-btn" onclick="addDcToken()">＋ トークンを追加</button>
+      <div class="stats-bar" id="dc-stats-bar" style="display:none">
+        <span><div class="stat-dot stat-ok"></div><span id="dc-stat-ok">0</span> 成功</span>
+        <span><div class="stat-dot stat-err"></div><span id="dc-stat-err">0</span> 失敗</span>
+        <span><div class="stat-dot stat-pend"></div><span id="dc-stat-pend">0</span> 待機</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">// 通報対象</div>
+      <div class="field">
+        <label>メッセージリンク（推奨）</label>
+        <input type="text" id="dc-message-link" placeholder="https://discord.com/channels/SERVER_ID/CHANNEL_ID/MESSAGE_ID" />
+      </div>
+      <div class="field">
+        <label>または チャンネルID + メッセージID</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="dc-channel-id" placeholder="チャンネルID" style="flex:1" />
+          <input type="text" id="dc-message-id" placeholder="メッセージID" style="flex:1" />
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">// 通報カテゴリ</div>
+      <div class="chips" id="dc-reasons">
+        <span class="chip selected" data-val="0">スパム</span>
+        <span class="chip" data-val="1">嫌がらせ/いじめ</span>
+        <span class="chip" data-val="2">未成年への不正</span>
+        <span class="chip" data-val="3">不適切なNSFW</span>
+        <span class="chip" data-val="4">自傷・自殺</span>
+        <span class="chip" data-val="5">暴力的コンテンツ</span>
+        <span class="chip" data-val="6">その他</span>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>詳細説明</label>
+        <textarea id="dc-note" placeholder="通報内容を詳しく記載..."></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">// 実行ログ</div>
+      <div class="log-box" id="dc-log"><div class="log-line"><span class="log-time">[--:--:--]</span><span>待機中... Worker URLを設定してください</span></div></div>
+      <div class="progress-wrap" id="dc-progress-wrap"><div class="progress-bar discord-bar" id="dc-progress-bar"></div></div>
+    </div>
+
+    <button class="submit-btn discord-btn" id="dc-submit" onclick="submitDiscord()">💬 全トークンで通報を実行</button>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ════════════════════════════════════════════════
+// 設定・状態
+// ════════════════════════════════════════════════
+let workerUrl  = localStorage.getItem('ar_worker') || '';
+let xTokenType = 'bearer';
+let dcTokenType = 'bot';
+
+// トークンリスト: [{ id, token, status, username }]
+let xTokens  = [];
+let dcTokens = [];
+let xIdSeq   = 0;
+let dcIdSeq  = 0;
+
+window.addEventListener('DOMContentLoaded', () => {
+  const wu = document.getElementById('worker-url');
+  if (workerUrl) { wu.value = workerUrl; updateWStatus(); }
+  initChips();
+  addXToken();   // デフォルト1枠
+  addDcToken();  // デフォルト1枠
+});
+
+// ── Worker URL ───────────────────────────────────
+function saveWorkerUrl() {
+  workerUrl = document.getElementById('worker-url').value.trim().replace(/\/$/, '');
+  localStorage.setItem('ar_worker', workerUrl);
+  updateWStatus();
+}
+function updateWStatus() {
+  const el = document.getElementById('worker-status');
+  if (!workerUrl)                         { el.textContent = '未設定';         el.className = 'wstatus';     return; }
+  if (workerUrl.startsWith('https://'))   { el.textContent = '✓ 設定済み';     el.className = 'wstatus ok';  return; }
+  el.textContent = '⚠ https:// が必要'; el.className = 'wstatus err';
+}
+
+// ── タブ ─────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab-btn.${tab}`).classList.add('active');
+  document.getElementById(`panel-${tab}`).classList.add('active');
+}
+function switchXTokenType(t) {
+  xTokenType = t;
+  document.getElementById('x-ttype-bearer').classList.toggle('active', t === 'bearer');
+  document.getElementById('x-ttype-user').classList.toggle('active',   t === 'user');
+  document.getElementById('x-bearer-howto').style.display = t === 'bearer' ? '' : 'none';
+  document.getElementById('x-user-howto').style.display   = t === 'user'   ? '' : 'none';
+  // ラベルバッジ更新
+  document.querySelectorAll('#x-token-list .token-label-badge').forEach(b => b.textContent = t);
+}
+function switchDcTokenType(t) {
+  dcTokenType = t;
+  document.getElementById('dc-ttype-bot').classList.toggle('active',  t === 'bot');
+  document.getElementById('dc-ttype-user').classList.toggle('active', t === 'user');
+  document.getElementById('dc-bot-howto').style.display  = t === 'bot'  ? '' : 'none';
+  document.getElementById('dc-user-howto').style.display = t === 'user' ? '' : 'none';
+  document.querySelectorAll('#dc-token-list .token-label-badge').forEach(b => b.textContent = t);
+}
+
+// ── Chips ────────────────────────────────────────
+function initChips() {
+  document.querySelectorAll('.chips').forEach(g => {
+    g.querySelectorAll('.chip').forEach(c => {
+      c.addEventListener('click', () => {
+        g.querySelectorAll('.chip').forEach(x => x.classList.remove('selected'));
+        c.classList.add('selected');
+      });
+    });
+  });
+}
+
+// ── ユーティリティ ────────────────────────────────
+function ts() { return new Date().toLocaleTimeString('ja-JP', { hour12: false }); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function appendLog(id, type, msg) {
+  const box = document.getElementById(id);
+  const ln  = document.createElement('div');
+  ln.className = 'log-line';
+  ln.innerHTML = `<span class="log-time">[${ts()}]</span><span class="log-${type}">${esc(msg)}</span>`;
+  box.appendChild(ln);
+  box.scrollTop = box.scrollHeight;
+}
+function clearLog(id) { document.getElementById(id).innerHTML = ''; }
+function setProgress(id, pct) {
+  const wrap = document.getElementById(id + '-progress-wrap');
+  const bar  = document.getElementById(id + '-progress-bar');
+  wrap.style.display = pct > 0 ? 'block' : 'none';
+  bar.style.width = pct + '%';
+}
+async function workerPost(endpoint, payload) {
+  if (!workerUrl) throw new Error('Worker URLが設定されていません');
+  const res = await fetch(`${workerUrl}${endpoint}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+// ════════════════════════════════════════════════
+// マルチトークン — 共通 UI
+// ════════════════════════════════════════════════
+
+function makeTokenItem(listId, tokenArr, idSeqRef, type, labelText) {
+  const id  = `${listId}-${idSeqRef.val++}`;
+  const obj = { id, token: '', status: 'idle', username: '' };
+  tokenArr.push(obj);
+
+  const item = document.createElement('div');
+  item.className = 'token-item';
+  item.id = `ti-${id}`;
+  item.innerHTML = `
+    <div class="token-index">${tokenArr.length}</div>
+    <div class="token-input-wrap">
+      <input type="password" placeholder="${labelText}..." oninput="onTokenInput('${id}','${listId}')" autocomplete="off" />
+      <div class="token-label-badge">${type}</div>
+    </div>
+    <div class="token-item-status" id="tis-${id}">未確認</div>
+    <button class="token-remove-btn" onclick="removeToken('${id}','${listId}')" title="削除">✕</button>
+  `;
+  document.getElementById(listId).appendChild(item);
+
+  // 番号を再割り当て
+  reindexTokenList(listId, tokenArr);
+  return obj;
+}
+
+function onTokenInput(id, listId) {
+  const arr = listId === 'x-token-list' ? xTokens : dcTokens;
+  const obj = arr.find(t => t.id === id);
+  const el  = document.getElementById(`ti-${id}`);
+  const inp = el.querySelector('input');
+  if (obj) { obj.token = inp.value.trim(); obj.status = 'idle'; obj.username = ''; }
+  setTokenItemStatus(id, 'idle', '未確認');
+  el.className = 'token-item';
+}
+
+function removeToken(id, listId) {
+  const arr = listId === 'x-token-list' ? xTokens : dcTokens;
+  const idx = arr.findIndex(t => t.id === id);
+  if (idx !== -1) arr.splice(idx, 1);
+  document.getElementById(`ti-${id}`)?.remove();
+  reindexTokenList(listId, arr);
+}
+
+function reindexTokenList(listId, arr) {
+  const items = document.getElementById(listId).querySelectorAll('.token-item');
+  items.forEach((el, i) => {
+    el.querySelector('.token-index').textContent = i + 1;
+  });
+}
+
+function setTokenItemStatus(id, state, msg) {
+  const el  = document.getElementById(`tis-${id}`);
+  const row = document.getElementById(`ti-${id}`);
+  if (!el || !row) return;
+  el.textContent = msg;
+  el.className   = `token-item-status ${state}`;
+  row.className  = 'token-item' + (state === 'ok' ? ' verified-ok' : state === 'err' ? ' verified-err' : state === 'run' ? ' running' : state === 'done' ? ' done-ok' : state === 'done-err' ? ' done-err' : '');
+}
+
+function updateStats(prefix, arr) {
+  const ok   = arr.filter(t => t.status === 'done').length;
+  const err  = arr.filter(t => t.status === 'done-err').length;
+  const pend = arr.filter(t => !['done','done-err'].includes(t.status)).length;
+  const bar  = document.getElementById(`${prefix}-stats-bar`);
+  if (bar) {
+    bar.style.display = '';
+    document.getElementById(`${prefix}-stat-ok`).textContent   = ok;
+    document.getElementById(`${prefix}-stat-err`).textContent  = err;
+    document.getElementById(`${prefix}-stat-pend`).textContent = pend;
+  }
+}
+
+// ════════════════════════════════════════════════
+// X (Twitter) マルチトークン
+// ════════════════════════════════════════════════
+const xIdSeqObj = { val: 0 };
+
+function addXToken() {
+  makeTokenItem('x-token-list', xTokens, xIdSeqObj, xTokenType, 'Token');
+}
+
+async function verifyOneX(obj) {
+  if (!obj.token) { setTokenItemStatus(obj.id, 'err', '空欄'); return; }
+  setTokenItemStatus(obj.id, 'run', '確認中...');
+  try {
+    const d = await workerPost('/proxy/x/verify', { token: obj.token, tokenType: xTokenType });
+    if (d.ok) {
+      obj.status   = 'ok';
+      obj.username = d.username;
+      setTokenItemStatus(obj.id, 'ok', `@${d.username}`);
+    } else {
+      obj.status = 'err';
+      setTokenItemStatus(obj.id, 'err', d.error?.slice(0,20) || '失敗');
+    }
+  } catch(e) {
+    obj.status = 'err';
+    setTokenItemStatus(obj.id, 'err', 'エラー');
+  }
+}
+
+async function verifyAllX() {
+  if (!workerUrl) { alert('Worker URLを設定してください'); return; }
+  await Promise.all(xTokens.map(verifyOneX));
+}
+
+async function submitX() {
+  const tokens = xTokens.filter(t => t.token);
+  const target  = document.getElementById('x-target').value.trim();
+  const username = document.getElementById('x-username').value.trim();
+  const reason  = document.querySelector('#x-reasons .chip.selected')?.dataset.val || 'other';
+  const note    = document.getElementById('x-note').value.trim();
+  const log = 'x-log';
+  const btn = document.getElementById('x-submit');
+
+  if (!workerUrl)       { alert('Worker URLを設定してください'); return; }
+  if (!tokens.length)   { appendLog(log, 'err', 'トークンを1つ以上入力してください'); return; }
+  if (!target && !username) { appendLog(log, 'err', '通報対象を入力してください'); return; }
+
+  btn.disabled = true;
+  clearLog(log);
+  setProgress('x', 5);
+
+  // ツイートIDを抽出
+  let tweetId = target;
+  const um = target.match(/status\/(\d+)/);
+  if (um) tweetId = um[1];
+  if (!/^\d+$/.test(tweetId)) tweetId = null;
+
+  appendLog(log, 'info', `通報開始 [${xTokenType}] — トークン×${tokens.length}`);
+
+  // 最初のTokenでツイート/ユーザー情報取得
+  const firstToken = tokens[0].token;
+  let authorId = null;
+
+  try {
+    if (tweetId) {
+      setProgress('x', 15);
+      appendLog(log, 'info', `ツイート情報取得中 (ID: ${tweetId})...`);
+      const td = await workerPost('/proxy/x/tweet', { token: firstToken, tweetId });
+      if (!td.ok) { appendLog(log, 'err', `ツイート取得失敗: ${td.error}`); setProgress('x', 0); btn.disabled = false; return; }
+      appendLog(log, 'ok', `ツイート: "${(td.tweet?.text||'').slice(0,60)}..."`);
+      authorId = td.tweet?.author_id;
+    } else if (username) {
+      setProgress('x', 15);
+      const ud = await workerPost('/proxy/x/user', { token: firstToken, username });
+      if (!ud.ok) { appendLog(log, 'err', `ユーザー取得失敗: ${ud.error}`); setProgress('x', 0); btn.disabled = false; return; }
+      appendLog(log, 'ok', `ユーザー: @${ud.user?.username} (${ud.user?.id})`);
+      authorId = ud.user?.id;
+    }
+    if (!authorId) { appendLog(log, 'err', 'authorIdを取得できませんでした'); setProgress('x', 0); btn.disabled = false; return; }
+
+    setProgress('x', 30);
+
+    if (xTokenType !== 'user') {
+      appendLog(log, 'warn', 'Bearer Tokenでは通報APIを直接呼べません。User Tokenに切り替えてください');
+      setProgress('x', 0); btn.disabled = false; return;
+    }
+
+    // 全トークンで順番に通報（複数時は各リクエスト後に3〜5秒のランダム遅延）
+    const multi = tokens.length > 1;
+    appendLog(log, 'info', `${tokens.length}個のトークンで通報します${multi ? '（各リクエスト後 3〜5秒遅延）' : ''}...`);
+    xTokens.forEach(t => { if (t.token) setTokenItemStatus(t.id, 'run', '待機中...'); });
+
+    let doneCount = 0;
+    for (const obj of tokens) {
+      setTokenItemStatus(obj.id, 'run', '送信中...');
+      try {
+        const rd = await workerPost('/proxy/x/report', { token: obj.token, authorId, tweetId });
+        doneCount++;
+        setProgress('x', 30 + Math.round(doneCount / tokens.length * 65));
+        if (rd.ok) {
+          obj.status = 'done';
+          setTokenItemStatus(obj.id, 'done', '✓ 通報完了');
+          appendLog(log, 'ok', `[Token${xTokens.indexOf(obj)+1}] 通報成功`);
+        } else {
+          obj.status = 'done-err';
+          setTokenItemStatus(obj.id, 'done-err', rd.error?.slice(0,18) || '失敗');
+          appendLog(log, 'err', `[Token${xTokens.indexOf(obj)+1}] 失敗 (${rd.status}): ${rd.error}`);
+        }
+      } catch(e) {
+        obj.status = 'done-err';
+        setTokenItemStatus(obj.id, 'done-err', 'エラー');
+        appendLog(log, 'err', `[Token${xTokens.indexOf(obj)+1}] 通信エラー: ${e.message}`);
+      }
+      // 複数トークンかつ最後ではない場合、3〜5秒の遅延
+      if (multi && obj !== tokens[tokens.length - 1]) {
+        const delay = Math.random() * 2000 + 3000; // 3000〜5000ms
+        appendLog(log, 'info', `次のトークンまで ${(delay/1000).toFixed(2)}秒 待機...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+
+    const ok  = tokens.filter(t => t.status === 'done').length;
+    const err = tokens.filter(t => t.status === 'done-err').length;
+    setProgress('x', 100);
+    appendLog(log, ok > 0 ? 'ok' : 'err', `完了 — 成功: ${ok} / 失敗: ${err} / 合計: ${tokens.length}`);
+    updateStats('x', xTokens);
+
+  } catch(e) {
+    appendLog(log, 'err', `エラー: ${e.message}`);
+    setProgress('x', 0);
+  }
+  btn.disabled = false;
+}
+
+// ════════════════════════════════════════════════
+// Discord マルチトークン
+// ════════════════════════════════════════════════
+const dcIdSeqObj = { val: 0 };
+
+function addDcToken() {
+  makeTokenItem('dc-token-list', dcTokens, dcIdSeqObj, dcTokenType, 'Token');
+}
+
+async function verifyOneDc(obj) {
+  if (!obj.token) { setTokenItemStatus(obj.id, 'err', '空欄'); return; }
+  setTokenItemStatus(obj.id, 'run', '確認中...');
+  try {
+    const d = await workerPost('/proxy/discord/verify', { token: obj.token, tokenType: dcTokenType });
+    if (d.ok) {
+      obj.status   = 'ok';
+      obj.username = d.username;
+      setTokenItemStatus(obj.id, 'ok', d.username);
+    } else {
+      obj.status = 'err';
+      setTokenItemStatus(obj.id, 'err', d.error?.slice(0,18) || '失敗');
+    }
+  } catch(e) {
+    obj.status = 'err';
+    setTokenItemStatus(obj.id, 'err', 'エラー');
+  }
+}
+
+async function verifyAllDc() {
+  if (!workerUrl) { alert('Worker URLを設定してください'); return; }
+  await Promise.all(dcTokens.map(verifyOneDc));
+}
+
+function parseDiscordLink(link) {
+  if (!link) return {};
+  const m = link.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+  if (m) return { guildId: m[1], channelId: m[2], messageId: m[3] };
+  const dm = link.match(/channels\/@me\/(\d+)\/(\d+)/);
+  if (dm) return { guildId: null, channelId: dm[1], messageId: dm[2] };
+  return {};
+}
+
+async function submitDiscord() {
+  const tokens = dcTokens.filter(t => t.token);
+  const log = 'dc-log';
+  const btn = document.getElementById('dc-submit');
+
+  const msgLink  = document.getElementById('dc-message-link').value.trim();
+  let channelId  = document.getElementById('dc-channel-id').value.trim();
+  let messageId  = document.getElementById('dc-message-id').value.trim();
+  let guildId    = null;
+  const reasonId = Number(document.querySelector('#dc-reasons .chip.selected')?.dataset.val ?? 0);
+  const note     = document.getElementById('dc-note').value.trim();
+
+  if (msgLink) {
+    const p = parseDiscordLink(msgLink);
+    if (p.channelId) { channelId = p.channelId; messageId = p.messageId; guildId = p.guildId; }
+  }
+
+  if (!workerUrl)    { alert('Worker URLを設定してください'); return; }
+  if (!tokens.length){ appendLog(log, 'err', 'トークンを1つ以上入力してください'); return; }
+  if (!channelId || !messageId) { appendLog(log, 'err', 'メッセージリンクを入力してください'); return; }
+
+  btn.disabled = true;
+  clearLog(log);
+  setProgress('dc', 5);
+  appendLog(log, 'info', `通報開始 [${dcTokenType}] — トークン×${tokens.length}`);
+  if (guildId) appendLog(log, 'info', `Guild: ${guildId} | Ch: ${channelId} | Msg: ${messageId}`);
+
+  try {
+    if (dcTokenType !== 'user') {
+      appendLog(log, 'warn', 'Bot Tokenでは通報APIを呼べません。User Tokenに切り替えてください');
+      setProgress('dc', 0); btn.disabled = false; return;
+    }
+
+    const firstToken = tokens[0];
+
+ 
+    setProgress('dc', 10);
+    appendLog(log, 'info', 'STEP 1: メッセージ情報を確認中...');
+    const md = await workerPost('/proxy/discord/message', {
+      token: firstToken.token, tokenType: 'user', channelId, messageId
+    });
+    if (!md.ok) {
+      appendLog(log, 'err', `メッセージ取得失敗 (${md.status}): ${md.error}`);
+      if (md.status === 403) appendLog(log, 'warn', '権限不足 — User Tokenが正しいか確認してください');
+      if (md.status === 404) appendLog(log, 'warn', 'メッセージが存在しないか削除済みです');
+      setProgress('dc', 0); btn.disabled = false; return;
+    }
+    const preview = (md.message?.content || '').slice(0, 80) || '(内容なし)';
+    const author  = md.message?.author?.username || '?';
+    if (md.message?.guild_id && !guildId) guildId = md.message.guild_id;
+    appendLog(log, 'ok', `メッセージ確認: "${preview}"`);
+    appendLog(log, 'info', `投稿者: ${author} | ${guildId ? 'Guild: ' + guildId : 'DM'}`);
+
+  
+    setProgress('dc', 22);
+    appendLog(log, 'info', `STEP 2: 通報メニューを取得中 (reporting/menu/${channelId}/${messageId})...`);
+    const menuData = await workerPost('/proxy/discord/menu', {
+      token: firstToken.token, channelId, messageId, guildId: guildId || undefined
+    });
+    if (menuData.ok) {
+      const flowId = menuData.menu?.id;
+      const crumbs = menuData.menu?.breadcrumbs;
+      appendLog(log, 'ok', `メニュー取得成功 — flow_id: ${flowId || '(なし)'}`);
+      if (crumbs?.length) appendLog(log, 'info', `breadcrumbs: ${crumbs.map(c => c.name).join(' > ')}`);
+    } else {
+      appendLog(log, 'warn', `メニュー取得失敗 (${menuData.status}): ${menuData.error} — フォールバックで続行`);
+    }
+
+
+    setProgress('dc', 35);
+    const multi = tokens.length > 1;
+    appendLog(log, 'info', `STEP 3: ${tokens.length}個のトークンで通報送信${multi ? '（各リクエスト後 3〜5秒遅延）' : ''}...`);
+    tokens.forEach(t => setTokenItemStatus(t.id, 'run', '待機中...'));
+
+    let doneCount = 0;
+    for (const obj of tokens) {
+      setTokenItemStatus(obj.id, 'run', '送信中...');
+      try {
+        const rd = await workerPost('/proxy/discord/report', {
+          token: obj.token, tokenType: 'user',
+          channelId, messageId,
+          guildId: guildId || undefined,
+          reasonId, description: note,
+        });
+
+        if (rd.ok) {
+          obj.status = 'done';
+          const flowLabel = rd.flow ? ` [${rd.flow}]` : '';
+          setTokenItemStatus(obj.id, 'done', `✓ HTTP${rd.status}`);
+          appendLog(log, 'ok', `[Token${dcTokens.indexOf(obj)+1}] 通報成功 HTTP${rd.status}${flowLabel}`);
+        } else {
+          obj.status = 'done-err';
+          setTokenItemStatus(obj.id, 'done-err', `${rd.status || '?'}`);
+          appendLog(log, 'err', `[Token${dcTokens.indexOf(obj)+1}] 失敗 (${rd.status}): ${rd.error}`);
+          if (rd.hint) appendLog(log, 'warn', `ヒント: ${rd.hint}`);
+          if (rd.raw)  appendLog(log, 'warn', `詳細: ${JSON.stringify(rd.raw).slice(0, 120)}`);
+        }
+      } catch(e) {
+        obj.status = 'done-err';
+        setTokenItemStatus(obj.id, 'done-err', 'エラー');
+        appendLog(log, 'err', `[Token${dcTokens.indexOf(obj)+1}] 通信エラー: ${e.message}`);
+      }
+
+      doneCount++;
+      setProgress('dc', 35 + Math.round(doneCount / tokens.length * 60));
+
+   
+      if (multi && obj !== tokens[tokens.length - 1]) {
+        const delay = Math.random() * 2000 + 3000;
+        appendLog(log, 'info', `次のトークンまで ${(delay/1000).toFixed(2)}秒 待機...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+
+    const okC  = tokens.filter(t => t.status === 'done').length;
+    const errC = tokens.filter(t => t.status === 'done-err').length;
+    setProgress('dc', 100);
+    appendLog(log, okC > 0 ? 'ok' : 'err', `完了 — 成功: ${okC} / 失敗: ${errC} / 合計: ${tokens.length}`);
+    updateStats('dc', dcTokens);
+
+  } catch(e) {
+    appendLog(log, 'err', `エラー: ${e.message}`);
+    setProgress('dc', 0);
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
